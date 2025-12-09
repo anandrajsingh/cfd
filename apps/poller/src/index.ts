@@ -1,18 +1,56 @@
 import WebSocket from "ws"
 import { initRedis, redis } from "./redisClient";
 
-async function main() {
+const currentPrice = [
+    { market: "BTC_USDC", price: 0, decimals: 0 },
+    { market: "SOL_USDC", price: 0, decimals: 0 },
+    { market: "ETH_USDC", price: 0, decimals: 0 },
+]
 
-    await initRedis()
-    const ws = new WebSocket("wss://ws.backpack.exchange/");
+function publishCurrentPrice() {
+    setInterval(async() => {
+        await redis.publish("price_updates", JSON.stringify(currentPrice))
+    },1000)
+}
+
+async function handleTradeUpdate(message: any) {
+    const { s, p } = message.data;
+
+    const price = Math.floor(Number(p) * 100);
+    const decimal = 2;
+
+    for(const item of currentPrice){
+        if(item.market === s){
+            item.price = price;
+            item.decimals = decimal
+        }
+    }
+}
+
+function connectWS(){
+        const ws = new WebSocket("wss://ws.backpack.exchange/");
 
     ws.on("open", () => {
-        console.log("Connected to WebSocket")
+        console.log("Connected to Backpack")
 
         ws.send(
             JSON.stringify({
                 "method": "SUBSCRIBE",
                 "params": ["trade.SOL_USDC"],
+                "id": 1
+            })
+        )
+        ws.send(
+            JSON.stringify({
+                "method": "SUBSCRIBE",
+                "params": ["trade.BTC_USDC"],
+                "id": 2
+            })
+        )
+        ws.send(
+            JSON.stringify({
+                "method": "SUBSCRIBE",
+                "params": ["trade.ETH_USDC"],
                 "id": 3
             })
         )
@@ -35,23 +73,15 @@ async function main() {
     });
 
     ws.on("close", () => {
-        console.log("Disconnected from WebSocket");
+        console.log("Disconnected from Backpack. Trying to reconnect");
+        setTimeout(connectWS, 3000)
     });
-
 }
-async function handleTradeUpdate(data: any) {
-    const { s, p } = data.data;
 
-    const asset = s.split("_")[0];
-    const price = Math.floor(Number(p) * 100);
-    const decimal = 2;
-
-    const payload = {
-        price_updates: [
-            { asset, price, decimal }
-        ]
-    }
-    await redis.publish("price_updates", JSON.stringify(payload))
+async function main() {
+    await initRedis()
+    publishCurrentPrice()
+    connectWS()
 }
 
 main()
