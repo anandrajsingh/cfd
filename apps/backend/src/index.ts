@@ -3,6 +3,7 @@ import router from "./mainRoutes";
 import cors from "cors"
 import { userRouter } from "./routes/authRouter";
 import { tradeRouter } from "./routes/tradeRouter";
+import { candleRouter } from "./routes/candleRouter";
 
 const app = express();
 app.use(express.json())
@@ -16,5 +17,6 @@ app.get("/", (req, res) => {
 })
 app.use("/api/v1", userRouter)
 app.use("/api/v1/trade", tradeRouter)
+app.use("/api/v1/candle", candleRouter)
 
 app.listen(port);
