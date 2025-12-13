@@ -7,9 +7,37 @@ datasource db {
   provider = "postgresql"
 }
 
-model User{
-  id String @id @default(cuid())
-  email String @unique
-  password String
-  balance Int @default(5000)
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  balance   Int        @default(5000)
+  positions Position[]
+}
+
+model Position {
+  id               String    @id @default(cuid())
+  asset            Asset
+  type             TradeType
+  margin           Int
+  leverage         Int
+  entryPrice       Int
+  positionSize     Int
+  liquidationPrice Int
+  takeProfit       Int?
+  stopLoss         Int?
+  openedAt         DateTime  @default(now())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+}
+
+enum TradeType {
+  LONG
+  SHORT
+}
+
+enum Asset {
+  BTC
+  SOL
+  ETH
 }
