@@ -8,11 +8,12 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  balance   Int        @default(5000)
-  positions Position[]
+  id              String           @id @default(cuid())
+  email           String           @unique
+  password        String
+  balance         Int              @default(500000)
+  positions       Position[]
+  closedPositions ClosedPosition[]
 }
 
 model Position {
@@ -29,6 +30,22 @@ model Position {
   openedAt         DateTime  @default(now())
   userId           String
   user             User      @relation(fields: [userId], references: [id])
+}
+
+model ClosedPosition {
+  id           String    @id @default(cuid())
+  asset        Asset
+  type         TradeType
+  margin       Int
+  leverage     Int
+  entryPrice   Int
+  exitPrice    Int
+  positionSize Int
+  realizedPnl  Int
+  openedAt     DateTime
+  closedAt     DateTime  @default(now())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
 }
 
 enum TradeType {

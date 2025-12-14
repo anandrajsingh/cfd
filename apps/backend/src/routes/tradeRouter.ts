@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { v4 as uuidv4 } from "uuid";
 import authMiddleware, { AuthRequest } from "../middleware";
 import { prismaClient as prisma } from "@repo/db/client";
 
 export const tradeRouter = Router()
 
 const Assets = ["BTC", "SOL", "ETH"];
+const POSITION_SIZE_SCALE = 1_000_000;
 
 tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
     const { asset, type, margin, leverage, takeProfit, stopLoss } = req.body;
@@ -15,68 +15,123 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
         return res.status(400).json({ error: "Please send correct parameters." })
     }
 
-    if ((1 < leverage && leverage < 10) || margin < 1 || typeof leverage !== "number" || typeof margin !== "number") {
+    if (typeof leverage !== "number" || typeof margin !== "number" || 1 > leverage || leverage > 10 || margin < 100) {
         return res.status(400).json({ error: "Incorrect leverage or margin." })
     }
 
-    const user = await prisma.user.findUnique({
-        where: {
-            id: userId
-        },
-        select: {
-            balance: true
-        }
-    })
-    if (!user || !user.balance) return res.status(400).json({ error: "User Not found." })
+    let entryPrice = 10_00;  // To do: fetch price from websocket backend.
 
-    const userbalance = user.balance;
-    if (margin > userbalance) return res.status(400).json({ error: "Insufficient balance." })
-
-    let entryPrice = 10;  // To do: fetch price from websocket backend.
-
-    const positionSize = (margin * leverage) / entryPrice;
-    const liquidationPrice =
+    const realPositionSize = (margin * leverage) / entryPrice;
+    const positionSize = Math.floor(realPositionSize * POSITION_SIZE_SCALE)
+    const liquidationPrice = Math.floor(
         type === "LONG"
             ? entryPrice * (1 - 1 / leverage)
-            : entryPrice * (1 + 1 / leverage);
+            : entryPrice * (1 + 1 / leverage)
+    );
 
-    const position = await prisma.$transaction(async (tx) => {
+    try {
+
+        const position = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.findUnique({
+                where: { id: userId },
+                select: { balance: true }
+            })
+            if (!user || !user.balance) throw new Error("USER_NOT_FOUND");
+            if (margin > user.balance) throw new Error("INSUFFICIENT_BALANCE");
+
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    balance: { decrement: margin }
+                }
+            })
+
+            return tx.position.create({
+                data: {
+                    userId,
+                    asset,
+                    type,
+                    margin,
+                    leverage,
+                    entryPrice,
+                    positionSize,
+                    liquidationPrice,
+                    takeProfit,
+                    stopLoss
+                }
+            })
+        })
+        return res.status(201).json({
+            positionId: position.id,
+            entryPrice,
+            liquidationPrice,
+            positionSize
+        })
+    } catch (err: any) {
+        if (err.message === "INSUFFICIENT_BALANCE") {
+            return res.status(400).json({ error: "Insufficient balance" })
+        } else if (err.message === "USER_NOT_FOUND") {
+            return res.status(400).json({ error: "User not found" });
+        }
+        return res.status(400).json({ error: "Something went wrong." })
+    }
+})
+
+tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
+    const { positionId } = req.body
+    const userId = req.user.id;
+
+    if (!positionId) return res.status(400).json({ error: "Position Id is required." })
+
+    const position = await prisma.position.findFirst({
+        where: {
+            id: positionId,
+            userId
+        }
+    })
+    if (!position) return res.status(400).json({ error: "Position not found." })
+
+    const exitPrice = 11_00 //To do, fetch price from websocket.
+
+    const realPositionSize = position.positionSize / POSITION_SIZE_SCALE;
+
+    const pnl = Math.floor( position.type === "LONG" ?
+        (exitPrice - position.entryPrice) * realPositionSize : (position.entryPrice - exitPrice) * realPositionSize
+    )
+
+    const closePosition = await prisma.$transaction(async (tx) => {
         await tx.user.update({
-            where: {id: userId},
+            where: { id: userId },
             data: {
-                balance:{
-                    decrement: margin
+                balance: {
+                    increment: position.margin + pnl
                 }
             }
         })
-
-        return tx.position.create({
+        const closedPositionId = await tx.closedPosition.create({
             data: {
                 userId,
-                asset,
-                type,
-                margin,
-                leverage,
-                entryPrice,
-                positionSize,
-                liquidationPrice,
-                takeProfit,
-                stopLoss
+                asset: position.asset,
+                type: position.type,
+                margin: position.margin,
+                leverage: position.leverage,
+                entryPrice: position.entryPrice,
+                exitPrice,
+                positionSize: position.positionSize,
+                realizedPnl: pnl,
+                openedAt: position.openedAt,
             }
         })
-    })
-    
-    return res.status(201).json({
-        positionId: position.id,
-        entryPrice,
-        liquidationPrice,
-        positionSize
-    })
-})
 
-tradeRouter.post("/close", authMiddleware, (req: AuthRequest, res) => {
-    const { orderId } = req.body()
+        await tx.position.delete({
+            where: {
+                id: positionId
+            }
+        })
 
-    res.json({ success: "Order closed" })
+        return closedPositionId;
+    })
+
+    res.status(200).json({ success: "Order closed", pnl, closePosition })
 
 })
