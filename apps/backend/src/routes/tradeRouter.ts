@@ -135,3 +135,38 @@ tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
     res.status(200).json({ success: "Order closed", pnl, closePosition })
 
 })
+
+tradeRouter.post("/positions/open", authMiddleware, async (req: AuthRequest, res) => {
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({
+        where: {id: userId},
+    })
+    if(!user) return res.status(400).json({error: "User not found."})
+    try {
+        const openPositions = await prisma.position.findMany({
+            where: {userId},
+            orderBy: {openedAt: "desc"}
+        })
+
+        return res.status(200).json(openPositions)
+    } catch (err: any) {
+        return res.status(500).json({error: "Something went wrong."})
+    }
+})
+
+tradeRouter.post("/positions/closed",authMiddleware, async(req:AuthRequest, res) => {
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({
+        where: {id: userId}
+    })
+    if(!user) return res.status(400).json({error: "User not found."})
+    try {
+        const closedPositions = await prisma.closedPosition.findMany({
+            where: {userId},
+            orderBy: {openedAt: "desc"}
+        })
+        return res.status(200).json(closedPositions)
+    } catch (err) {
+        return res.status(500).json({error: "Something went wrong."})
+    }
+})
