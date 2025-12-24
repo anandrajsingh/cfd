@@ -13,6 +13,23 @@ function publishCurrentPrice() {
     },1000)
 }
 
+async function pushToPriceStream(
+    market:string,
+    price: number,
+    decimals: number
+){
+    await redis.xAdd(
+        "price_stream",
+        "*",
+        {
+            market,
+            price: price.toString(),
+            decimals: decimals.toString(),
+            timestamp: Date.now().toString()
+        }
+    )
+}
+
 async function handleTradeUpdate(message: any) {
     const { s, p } = message.data;
 
@@ -25,6 +42,10 @@ async function handleTradeUpdate(message: any) {
             item.decimals = decimal
         }
     }
+
+    pushToPriceStream(s, price, decimal).catch(err => {
+        console.error("Failed to push to stream.", err)
+    })
 }
 
 function connectWS(){
