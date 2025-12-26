@@ -48,6 +48,14 @@ model ClosedPosition {
   user         User      @relation(fields: [userId], references: [id])
 }
 
+model PriceTick {
+  time DateTime
+  asset Asset
+  price BigInt
+  @@id([asset, time])
+  @@index([asset, time])
+}
+
 enum TradeType {
   LONG
   SHORT
