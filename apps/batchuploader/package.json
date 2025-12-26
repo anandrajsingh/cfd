@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "redis": "^5.10.0",
+    "@repo/db": "*",
     "@repo/typescript-config": "*"
   }
 }

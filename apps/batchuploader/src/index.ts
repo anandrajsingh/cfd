@@ -1,10 +1,15 @@
 import { createClient } from "redis";
+import { Asset } from "@prisma/client"
+import { prismaClient as prisma } from "@repo/db/client"
 
 const redisClient = createClient({ url: "redis://localhost:6379" });
 
 const STREAM_KEY = "price_stream";
 const GROUP_NAME = "price_uploaders";
 const CONSUMER_NAME = "worker-1";
+
+const BUFFER_SIZE = 500;
+const FLUSH_INTERVAL_MS = 3000;
 
 type RedisStreamMessage = {
     id: string;
@@ -16,6 +21,14 @@ type RedisStream = {
     messages: RedisStreamMessage[];
 };
 
+type PriceTickBuffer ={
+    id: string;
+    time: Date;
+    asset: Asset;
+    price: bigint;
+}
+
+let buffer: PriceTickBuffer[] = [];
 
 async function initRedis() {
     try {
@@ -61,17 +74,52 @@ async function getRedisData(){
             }
             const stream = rawStream as RedisStream
             for(const msg of stream.messages){
-                const { market, price, decimals, timestamp } = msg.message
-                console.log("Recieved price", {market, price, decimals, timestamp})
-                
-                await redisClient.xAck(STREAM_KEY, GROUP_NAME, msg.id)
+                const { market, price, timestamp } = msg.message;
+                if(!market || !price || !timestamp) continue;
+                buffer.push({
+                    id: msg.id,
+                    time: new Date(Number(timestamp)),
+                    asset: market as Asset,
+                    price: BigInt(price)
+                })
+                console.log("Recieved price", {market, price, timestamp})
             }
         }
     }
 }
 
+async function flushToDB(){
+    if(buffer.length === 0) return;
+
+    const batch = buffer.splice(0, BUFFER_SIZE);
+
+    try {
+        await prisma.priceTick.createMany({
+            data: batch.map(b => ({
+                time: b.time,
+                asset: b.asset,
+                price: b.price,
+            })),
+            skipDuplicates: true
+        })
+
+        await redisClient.xAck(
+            STREAM_KEY,
+            GROUP_NAME,
+            batch.map(b => b.id)
+        )
+        console.log(`Inserted and ACKed ${batch.length} ticks.`)
+    } catch (err) {
+        console.log("DB insert failed, retrying", err)
+        buffer.unshift(...batch);
+    }
+}
+
 async function main() {
     await initRedis()
+    setInterval(() => {
+        flushToDB().catch(console.error)
+    }, FLUSH_INTERVAL_MS)
     await getRedisData()
 }
 
@@ -79,6 +127,7 @@ main()
 
 process.on("SIGINT", async () => {
     console.log("Shutting Down...")
+    await prisma.$disconnect();
     await redisClient.quit()
     process.exit(0)
 })
