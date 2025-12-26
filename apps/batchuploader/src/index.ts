@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createClient } from "redis";
 import { Asset } from "@prisma/client"
 import { prismaClient as prisma } from "@repo/db/client"
