@@ -16,7 +16,6 @@ function publishCurrentPrice() {
 async function pushToPriceStream(
     market:string,
     price: number,
-    decimals: number
 ){
     await redis.xAdd(
         "price_stream",
@@ -24,7 +23,6 @@ async function pushToPriceStream(
         {
             market,
             price: price.toString(),
-            decimals: decimals.toString(),
             timestamp: Date.now().toString()
         }
     )
@@ -32,6 +30,8 @@ async function pushToPriceStream(
 
 async function handleTradeUpdate(message: any) {
     const { s, p } = message.data;
+
+    const market = s.split("_")[0]
 
     const price = Math.floor(Number(p) * 100);
     const decimal = 2;
@@ -43,7 +43,7 @@ async function handleTradeUpdate(message: any) {
         }
     }
 
-    pushToPriceStream(s, price, decimal).catch(err => {
+    pushToPriceStream(market, price).catch(err => {
         console.error("Failed to push to stream.", err)
     })
 }
