@@ -7,7 +7,7 @@ const redisClient = createClient({ url: "redis://localhost:6379" });
 
 const STREAM_KEY = "price_stream";
 const GROUP_NAME = "price_uploaders";
-const CONSUMER_NAME = "worker-1";
+const CONSUMER_NAME = `worker-${process.pid}`;
 
 const BUFFER_SIZE = 500;
 const FLUSH_INTERVAL_MS = 3000;
@@ -83,7 +83,6 @@ async function getRedisData(){
                     asset: market as Asset,
                     price: BigInt(price)
                 })
-                console.log("Recieved price", {market, price, timestamp})
             }
         }
     }
@@ -92,7 +91,7 @@ async function getRedisData(){
 async function flushToDB(){
     if(buffer.length === 0) return;
 
-    const batch = buffer.splice(0, BUFFER_SIZE);
+    const batch = buffer.slice(0, BUFFER_SIZE);
 
     try {
         await prisma.priceTick.createMany({
@@ -109,10 +108,10 @@ async function flushToDB(){
             GROUP_NAME,
             batch.map(b => b.id)
         )
+        buffer.splice(0, batch.length)
         console.log(`Inserted and ACKed ${batch.length} ticks.`)
     } catch (err) {
         console.log("DB insert failed, retrying", err)
-        buffer.unshift(...batch);
     }
 }
 
