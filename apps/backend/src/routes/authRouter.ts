@@ -8,9 +8,9 @@ import { prismaClient } from "@repo/db/client";
 export const userRouter = Router();
 
 userRouter.post("/signup", async (req, res) => {
-    const { email, password } = req.body;
+    const {name, email, password } = req.body;
     try {
-        if (!email || !password) return res.status(400).json({ error: "Email and Password both are required." })
+        if (!name || !email || !password) return res.status(400).json({ error: "Email and Password both are required." })
 
         const passwordhash = await bcrypt.hash(password, 12)
         const user = await prismaClient.user.create({
