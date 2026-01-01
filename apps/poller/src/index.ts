@@ -2,21 +2,21 @@ import WebSocket from "ws"
 import { initRedis, redis } from "./redisClient";
 
 const currentPrice = [
-    { market: "BTC_USDC", price: 0, decimals: 0 },
-    { market: "SOL_USDC", price: 0, decimals: 0 },
-    { market: "ETH_USDC", price: 0, decimals: 0 },
+    { market: "BTC", price: 0, decimals: 0 },
+    { market: "SOL", price: 0, decimals: 0 },
+    { market: "ETH", price: 0, decimals: 0 },
 ]
 
 function publishCurrentPrice() {
-    setInterval(async() => {
+    setInterval(async () => {
         await redis.publish("price_updates", JSON.stringify(currentPrice))
-    },1000)
+    }, 300)
 }
 
 async function pushToPriceStream(
-    market:string,
+    market: string,
     price: number,
-){
+) {
     await redis.xAdd(
         "price_stream",
         "*",
@@ -29,15 +29,15 @@ async function pushToPriceStream(
 }
 
 async function handleTradeUpdate(message: any) {
-    const { s, p } = message.data;
+    const { s, p } = message;
 
-    const market = s.split("_")[0]
-
+    const market = s.replace(/usdt$/i, "");
+    
     const price = Math.floor(Number(p) * 100);
     const decimal = 2;
-
-    for(const item of currentPrice){
-        if(item.market === s){
+    
+    for (const item of currentPrice) {
+        if (item.market === market) {
             item.price = price;
             item.decimals = decimal
         }
@@ -48,41 +48,28 @@ async function handleTradeUpdate(message: any) {
     })
 }
 
-function connectWS(){
-        const ws = new WebSocket("wss://ws.backpack.exchange/");
+function connectWS() {
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws");
 
     ws.on("open", () => {
-        console.log("Connected to Backpack")
+        console.log("Connected to Binance")
 
-        ws.send(
-            JSON.stringify({
-                "method": "SUBSCRIBE",
-                "params": ["trade.SOL_USDC"],
-                "id": 1
-            })
-        )
-        ws.send(
-            JSON.stringify({
-                "method": "SUBSCRIBE",
-                "params": ["trade.BTC_USDC"],
-                "id": 2
-            })
-        )
-        ws.send(
-            JSON.stringify({
-                "method": "SUBSCRIBE",
-                "params": ["trade.ETH_USDC"],
-                "id": 3
-            })
-        )
+        const requests = {
+            method: "SUBSCRIBE",
+            params: ["solusdt@trade", "btcusdt@trade", "ethusdt@trade"],
+            id: 1
+        }
+
+        ws.send(JSON.stringify(requests))
+
     })
 
     ws.on("message", (data) => {
         try {
             const message = JSON.parse(data.toString());
-
-            if (message.stream.startsWith("trade.")) {
-                handleTradeUpdate(message);
+            
+            if (message.e === "trade") {
+            handleTradeUpdate(message);
             }
         } catch (error) {
             console.error("Error parsing message: ", error)
