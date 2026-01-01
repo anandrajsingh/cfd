@@ -22,7 +22,7 @@ type RedisStream = {
     messages: RedisStreamMessage[];
 };
 
-type PriceTickBuffer ={
+type PriceTickBuffer = {
     id: string;
     time: Date;
     asset: Asset;
@@ -42,45 +42,64 @@ async function initRedis() {
     }
 }
 
-async function ensureConsumerGroup(){
+async function ensureConsumerGroup() {
     try {
         await redisClient.xGroupCreate(
-            STREAM_KEY, GROUP_NAME, "$", {MKSTREAM: true}
+            STREAM_KEY, GROUP_NAME, "$", { MKSTREAM: true }
         )
         console.log("Consumer group created.")
     } catch (err: any) {
-        if(err?.message?.includes("BUSYGROUP")){
+        if (err?.message?.includes("BUSYGROUP")) {
             console.log("Consumer group already exists.")
-        }else{
+        } else {
             throw err;
         }
     }
 }
 
-async function getRedisData(){
+function parseAsset(market: string): Asset | null {
+    switch (market) {
+        case "BTC":
+            return Asset.BTC;
+        case "ETH":
+            return Asset.ETH;
+        case "SOL":
+            return Asset.SOL;
+        default:
+            return null;
+    }
+}
+
+
+async function getRedisData() {
     await ensureConsumerGroup();
-    while(true){
+    while (true) {
         const response = await redisClient.xReadGroup(
             GROUP_NAME,
             CONSUMER_NAME,
-            [{key: STREAM_KEY, id: ">"}],
-            {BLOCK:5000, COUNT:100}
+            [{ key: STREAM_KEY, id: ">" }],
+            { BLOCK: 5000, COUNT: 100 }
         )
 
-        if(!Array.isArray(response)) continue;
+        if (!Array.isArray(response)) continue;
 
-        for(const rawStream of response){
-            if(typeof rawStream !== "object" || rawStream === null ){
+        for (const rawStream of response) {
+            if (typeof rawStream !== "object" || rawStream === null) {
                 continue;
             }
             const stream = rawStream as RedisStream
-            for(const msg of stream.messages){
+            for (const msg of stream.messages) {
                 const { market, price, timestamp } = msg.message;
-                if(!market || !price || !timestamp) continue;
+                if (!market || !price || !timestamp) continue;
+                const asset = parseAsset(market);
+                if (!asset) {
+                    console.warn("Unknown asset received:", market);
+                    continue;
+                }
                 buffer.push({
                     id: msg.id,
                     time: new Date(Number(timestamp)),
-                    asset: market as Asset,
+                    asset,
                     price: BigInt(price)
                 })
             }
@@ -88,8 +107,8 @@ async function getRedisData(){
     }
 }
 
-async function flushToDB(){
-    if(buffer.length === 0) return;
+async function flushToDB() {
+    if (buffer.length === 0) return;
 
     const batch = buffer.slice(0, BUFFER_SIZE);
 
