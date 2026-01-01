@@ -6,10 +6,12 @@ import { tradeRouter } from "./routes/tradeRouter";
 import { candleRouter } from "./routes/candleRouter";
 import { assetRouter } from "./routes/assetRouter";
 import { createClient } from "redis";
+import  cookieParser  from 'cookie-parser'
 
 const app = express();
 app.use(express.json())
 app.use(cors())
+app.use(cookieParser())
 
 const port = 3001;
 const subscriber = createClient({ url: "redis://localhost:6379" })

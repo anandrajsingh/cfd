@@ -22,7 +22,13 @@ userRouter.post("/signup", async (req, res) => {
         const token = jwt.sign({ email, userId: user.id }, process.env.JWT_SECRET!)
         // await sendMail(email, token);
 
-        res.json({ success: true, message: "User Created Successfully", token })
+        res.cookie("auth_token", token, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "lax",
+            maxAge: 365 * 24 * 60 * 60 * 1000
+        })
+        res.json({ success: true, message: "User Created Successfully"})
     } catch (err: any) {
         if (err.code === "P2002") {
             return res.status(409).json({ error: "User already exists" })
@@ -47,7 +53,14 @@ userRouter.post("/signin", async (req, res) => {
         if (!isPasswordValid) return res.status(401).json({ error: "Invalid email or password" })
 
         const authToken = jwt.sign({ email, userId: user.id }, process.env.JWT_SECRET!);
-        res.json({ success: true, authToken })
+
+        res.cookie("auth_token", authToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "lax",
+            maxAge: 365 * 24 * 60 * 60 * 1000
+        })
+        res.json({ success: true })
     } catch (error) {
 
     }
@@ -55,8 +68,8 @@ userRouter.post("/signin", async (req, res) => {
 
 userRouter.post("/signout", authMiddleware, (req: AuthRequest, res) => {
     const userId = req.user.id;
-
-    return res.json({success: true, message: "Signed OUt"})
+    res.clearCookie("auth_token");
+    return res.json({ message: `Signed Out ${userId}`})
 })
 
 userRouter.post("/user", authMiddleware, async (req: AuthRequest, res) => {
