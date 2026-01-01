@@ -35,6 +35,7 @@ export default function SignupPage() {
                 headers: {
                     "Content-type": "application/json"
                 },
+                credentials: "include",
                 body: JSON.stringify(form)
             })
 
