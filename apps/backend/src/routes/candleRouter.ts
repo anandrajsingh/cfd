@@ -13,7 +13,7 @@ const TIMEFRAME_VIEW_MAP: Record<number, string> = {
     604800: "candle_1w",
 };
 
-candleRouter.post("/", async (req, res) => {
+candleRouter.get("/", async (req, res) => {
     try {
         const asset = req.query.asset as string;
         const ts = Number(req.query.ts);
