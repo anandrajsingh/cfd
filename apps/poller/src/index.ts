@@ -2,9 +2,9 @@ import WebSocket from "ws"
 import { initRedis, redis } from "./redisClient";
 
 const currentPrice = [
-    { market: "BTC", price: 0, decimals: 0 },
-    { market: "SOL", price: 0, decimals: 0 },
-    { market: "ETH", price: 0, decimals: 0 },
+    { asset: "BTC", askPrice: 0, bidPrice: 0, decimals: 0 },
+    { asset: "SOL", askPrice: 0, bidPrice: 0, decimals: 0 },
+    { asset: "ETH", askPrice: 0, bidPrice: 0, decimals: 0 },
 ]
 
 function publishCurrentPrice() {
@@ -34,11 +34,14 @@ async function handleTradeUpdate(message: any) {
     const market = s.replace(/usdt$/i, "");
     
     const price = Math.floor(Number(p) * 100);
+    const askPrice = price + (price * 0.02);
+    const bidPrice = price
     const decimal = 2;
     
     for (const item of currentPrice) {
-        if (item.market === market) {
-            item.price = price;
+        if (item.asset === market) {
+            item.askPrice = askPrice;
+            item.bidPrice = bidPrice
             item.decimals = decimal
         }
     }
