@@ -30,3 +30,27 @@ export interface RealtimeUpdate {
   askPrice: number;
   time: number;
 }
+
+ const assetDetails = [
+    {
+      name: "Bitcoin",
+      symbol: "BTC",
+      decimals: 4,
+      imageUrl:
+        "https://i.postimg.cc/TPh0K530/87496d50-2408-43e1-ad4c-78b47b448a6a.png",
+    },
+    {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 4,
+      imageUrl:
+        "https://i.postimg.cc/gcKhPkY2/3a8c9fe6-2a76-4ace-aa07-415d994de6f0.png",
+    },
+    {
+      name: "Solana",
+      symbol: "SOL",
+      decimals: 4,
+      imageUrl:
+        "https://i.postimg.cc/9MhDvsK9/b2f0c70f-4fb2-4472-9fe7-480ad1592421.png",
+    },
+  ];

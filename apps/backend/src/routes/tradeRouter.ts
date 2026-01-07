@@ -9,7 +9,7 @@ const POSITION_SIZE_SCALE = 1_000_000;
 
 tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
     const { asset, type, margin, leverage, takeProfit, stopLoss } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (!Assets.includes(asset) || !(type === "LONG" || type === "SHORT")) {
         return res.status(400).json({ error: "Please send correct parameters." })
@@ -79,7 +79,7 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
 
 tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
     const { positionId } = req.body
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     if (!positionId) return res.status(400).json({ error: "Position Id is required." })
 

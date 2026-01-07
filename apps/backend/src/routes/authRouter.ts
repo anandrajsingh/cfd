@@ -89,17 +89,3 @@ userRouter.post("/user", authMiddleware, async (req: AuthRequest, res) => {
 
     }
 })
-
-userRouter.post("/user/balance", authMiddleware, async (req: AuthRequest, res) => {
-    const userId = req.user.id;
-    try {
-        const user = await prismaClient.user.findFirst({
-            where: {
-                id: userId
-            }
-        })
-        return res.json({ balance: user?.balance })
-    } catch (error) {
-        return res.status(400).json({ error: "Something went wrong" })
-    }
-})

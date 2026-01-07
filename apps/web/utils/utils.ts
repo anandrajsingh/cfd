@@ -24,3 +24,39 @@ export function toDisplayPriceUSD(val: number){
 export function convertToUsdPrice(val: number){
     return Math.round(val * USD_PRECISION);
 }
+
+export function calculatePnlCents({
+  side,
+  openPrice,
+  closePrice,
+  marginCents,
+  leverage,
+}: {
+  side: "buy" | "sell";
+  openPrice: number;
+  closePrice: number;
+  marginCents: number;
+  leverage: number;
+}): number {
+  const MONEY_SCALE = 100n;
+  const PRICE_SCALE = 10000n;
+  const CONVERSION_FACTOR = PRICE_SCALE / MONEY_SCALE;
+
+  const openP = BigInt(openPrice);
+  const closeP = BigInt(closePrice);
+  const margin = BigInt(marginCents);
+  const lev = BigInt(leverage);
+
+  const marginOnPriceScale = margin * CONVERSION_FACTOR;
+  const totalPositionValue = marginOnPriceScale * lev;
+
+  let pnlOnPriceScale = ((closeP - openP) * totalPositionValue) / openP;
+
+  if (side === "sell") {
+    pnlOnPriceScale = -pnlOnPriceScale;
+  }
+
+  const finalPnl = pnlOnPriceScale / CONVERSION_FACTOR;
+
+  return Number(finalPnl);
+}
