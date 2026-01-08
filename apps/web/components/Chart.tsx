@@ -314,7 +314,7 @@ export default function ChartComponent({
                     </div>
                 </div>
                 <div className="grow">
-                    <div ref={chartContainerRef} style={{ width: "100%", height: "600px" }} />
+                    <div ref={chartContainerRef} style={{ width: "100%", height: "100%" }} />
                 </div>
             </div>
         </div>

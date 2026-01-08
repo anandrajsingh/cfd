@@ -130,7 +130,7 @@ export default function BuySell({
 
     return (
         <aside
-            className="w-full rounded-lg border border-neutral-600 bg-neutral-900/80 backdrop-blur-xl text-neutral-50 shadow-sm h-full flex flex-col"
+            className="w-1/4 rounded-lg border border-neutral-600 bg-neutral-900/80 backdrop-blur-xl text-neutral-50 shadow-sm h-screen flex flex-col"
             aria-label="Trade Ticket"
         >
             <div className="flex border-b border-neutral-600/40 gap-2">

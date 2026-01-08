@@ -40,7 +40,7 @@ export default function AskBids({ asset }: { asset: Assets }) {
     },[])
 
     return (
-        <div className="w-full">
+        <div className="w-1/4">
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-xs text-neutral-400 border-b border-neutral-600/40">

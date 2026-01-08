@@ -179,7 +179,7 @@ export default function OrdersPanel() {
     }
 
     return (
-        <div className="bg-neutral-900/80 backdrop-blur-xl border border-neutral-600 rounded-lg w-full h-full flex flex-col">
+        <div className="bg-neutral-900/80 backdrop-blur-xl border border-neutral-600 rounded-lg w-full h-[35%] flex flex-col">
             <div className="flex border-b border-neutral-600/40">
                 <button
                     className={`flex-1 py-3 text-center text-sm font-medium transition ${activeTab === "open"
