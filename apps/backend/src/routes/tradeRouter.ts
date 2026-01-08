@@ -136,8 +136,8 @@ tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
 
 })
 
-tradeRouter.post("/positions/open", authMiddleware, async (req: AuthRequest, res) => {
-    const userId = req.user.id;
+tradeRouter.get("/positions/open", authMiddleware, async (req: AuthRequest, res) => {
+    const userId = req.user.userId;
     const user = await prisma.user.findUnique({
         where: {id: userId},
     })
@@ -154,8 +154,8 @@ tradeRouter.post("/positions/open", authMiddleware, async (req: AuthRequest, res
     }
 })
 
-tradeRouter.post("/positions/closed",authMiddleware, async(req:AuthRequest, res) => {
-    const userId = req.user.id;
+tradeRouter.get("/positions/closed",authMiddleware, async(req:AuthRequest, res) => {
+    const userId = req.user.userId;
     const user = await prisma.user.findUnique({
         where: {id: userId}
     })
