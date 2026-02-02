@@ -28,6 +28,7 @@ export default function SignInPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
+        setError(null)
 
         try {
             const res = await fetch("http://localhost:3001/api/v1/signin", {
@@ -40,8 +41,10 @@ export default function SignInPage() {
             })
             if (!res.ok) {
                 const data = await res.json();
+                setError("Signin failed.")
                 throw new Error(data.error || "Signin failed.");
             }
+            router.push("/dashboard")
         } catch (err) {
             console.log("Something went wrong")
         } finally {
@@ -55,6 +58,12 @@ export default function SignInPage() {
                 <h1 className="mb-6 text-2xl font-semibold text-white">
                     Sign in to you account
                 </h1>
+
+                {error && (
+                    <div className="mb-4 rounded bg-red-500/10 p-3 text-sm text-red-400">
+                        {error}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input
@@ -78,7 +87,7 @@ export default function SignInPage() {
                     />
 
                     <button disabled={loading} className="w-full rounded bg-green-500 py-2 font-medium text-black hover:bg-green-400 disabled:opacity-50">
-                        {loading? "Creating Account...": "Sign In"}
+                        {loading ? "Creating Account..." : "Sign In"}
                     </button>
                 </form>
             </div>
