@@ -5,7 +5,7 @@ import { userRouter } from "./routes/authRouter";
 import { tradeRouter } from "./routes/tradeRouter";
 import { candleRouter } from "./routes/candleRouter";
 import { assetRouter } from "./routes/assetRouter";
-import { createClient } from "redis";
+import { initRedis, redis } from "./redis";
 import  cookieParser  from 'cookie-parser'
 
 const app = express();
@@ -17,11 +17,10 @@ app.use(cors({
 app.use(cookieParser())
 
 const port = 3001;
-const subscriber = createClient({ url: "redis://localhost:6379" })
 
 async function startServer() {
     try {
-        await subscriber.connect()
+        await initRedis()
 
         app.use("/api/v1", userRouter)
         app.use("/api/v1/trade", tradeRouter)
@@ -38,7 +37,7 @@ async function startServer() {
 
 process.on("SIGINT", async () => {
     console.log("Shutting Down...");
-    await subscriber.quit()
+    if(redis.isOpen) await redis.quit()
     process.exit(0)
 })
 

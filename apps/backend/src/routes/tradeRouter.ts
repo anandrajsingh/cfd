@@ -1,6 +1,7 @@
 import { Router } from "express";
 import authMiddleware, { AuthRequest } from "../middleware";
 import { prismaClient as prisma } from "@repo/db/client";
+import { redis } from "../redis";
 
 export const tradeRouter = Router()
 
@@ -19,19 +20,19 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
         return res.status(400).json({ error: "Incorrect leverage or margin." })
     }
 
-    let entryPrice = 10_00;  // To do: fetch price from websocket backend.
+    // let entryPrice = 10_00;  // To do: fetch price from websocket backend.
 
-    const realPositionSize = (margin * leverage) / entryPrice;
-    const positionSize = Math.floor(realPositionSize * POSITION_SIZE_SCALE)
-    const liquidationPrice = Math.floor(
-        type === "LONG"
-            ? entryPrice * (1 - 1 / leverage)
-            : entryPrice * (1 + 1 / leverage)
-    );
+    // const realPositionSize = (margin * leverage) / entryPrice;
+    // const positionSize = Math.floor(realPositionSize * POSITION_SIZE_SCALE)
+    // const liquidationPrice = Math.floor(
+    //     type === "LONG"
+    //         ? entryPrice * (1 - 1 / leverage)
+    //         : entryPrice * (1 + 1 / leverage)
+    // );
 
     try {
 
-        const position = await prisma.$transaction(async (tx) => {
+        const order = await prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({
                 where: { id: userId },
                 select: { balance: true }
@@ -46,26 +47,34 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
                 }
             })
 
-            return tx.position.create({
+            return tx.activeOrder.create({
                 data: {
                     userId,
                     asset,
                     type,
                     margin,
                     leverage,
-                    entryPrice,
-                    positionSize,
-                    liquidationPrice,
+                    orderType: "MARKET",
                     takeProfit,
-                    stopLoss
+                    stopLoss,
+                    state: "CREATED"
                 }
             })
         })
+        await redis.xAdd("order_stream", "*", {
+            orderId: order.id,
+            userId,
+            asset,
+            side: type,
+            orderType: "MARKET",
+            margin: margin.toString(),
+            leverage: leverage.toString(),
+            takeProfit: takeProfit?.toString() ?? "",
+            stopLoss: stopLoss?.toString() ?? "",
+        });
         return res.status(201).json({
-            positionId: position.id,
-            entryPrice,
-            liquidationPrice,
-            positionSize
+            orderId: order.id,
+            status: "Order created"
         })
     } catch (err: any) {
         if (err.message === "INSUFFICIENT_BALANCE") {
@@ -95,7 +104,7 @@ tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
 
     const realPositionSize = position.positionSize / POSITION_SIZE_SCALE;
 
-    const pnl = Math.floor( position.type === "LONG" ?
+    const pnl = Math.floor(position.type === "LONG" ?
         (exitPrice - position.entryPrice) * realPositionSize : (position.entryPrice - exitPrice) * realPositionSize
     )
 
@@ -139,34 +148,34 @@ tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
 tradeRouter.get("/positions/open", authMiddleware, async (req: AuthRequest, res) => {
     const userId = req.user.userId;
     const user = await prisma.user.findUnique({
-        where: {id: userId},
+        where: { id: userId },
     })
-    if(!user) return res.status(400).json({error: "User not found."})
+    if (!user) return res.status(400).json({ error: "User not found." })
     try {
         const openPositions = await prisma.position.findMany({
-            where: {userId},
-            orderBy: {openedAt: "desc"}
+            where: { userId },
+            orderBy: { openedAt: "desc" }
         })
 
         return res.status(200).json(openPositions)
     } catch (err: any) {
-        return res.status(500).json({error: "Something went wrong."})
+        return res.status(500).json({ error: "Something went wrong." })
     }
 })
 
-tradeRouter.get("/positions/closed",authMiddleware, async(req:AuthRequest, res) => {
+tradeRouter.get("/positions/closed", authMiddleware, async (req: AuthRequest, res) => {
     const userId = req.user.userId;
     const user = await prisma.user.findUnique({
-        where: {id: userId}
+        where: { id: userId }
     })
-    if(!user) return res.status(400).json({error: "User not found."})
+    if (!user) return res.status(400).json({ error: "User not found." })
     try {
         const closedPositions = await prisma.closedPosition.findMany({
-            where: {userId},
-            orderBy: {openedAt: "desc"}
+            where: { userId },
+            orderBy: { openedAt: "desc" }
         })
         return res.status(200).json(closedPositions)
     } catch (err) {
-        return res.status(500).json({error: "Something went wrong."})
+        return res.status(500).json({ error: "Something went wrong." })
     }
 })
