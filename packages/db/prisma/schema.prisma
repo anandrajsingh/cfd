@@ -12,8 +12,27 @@ model User {
   email           String           @unique
   password        String
   balance         Int              @default(500000)
+  orders          ActiveOrder[]
   positions       Position[]
   closedPositions ClosedPosition[]
+}
+
+model ActiveOrder {
+  id String @id @default(cuid())
+
+  asset Asset
+  type  TradeType
+  orderType OrderType
+  limitPrice Int?
+
+  margin Int
+  leverage Int
+  takeProfit Int?
+  stopLoss Int?
+  state OrderState @default(CREATED)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model Position {
@@ -49,11 +68,24 @@ model ClosedPosition {
 }
 
 model PriceTick {
-  time DateTime
+  time  DateTime
   asset Asset
   price BigInt
+
   @@id([asset, time])
   @@index([asset, time])
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+}
+
+enum OrderState {
+  CREATED
+  ACTIVE
+  FILLED
+  CANCELLED
 }
 
 enum TradeType {
