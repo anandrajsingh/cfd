@@ -24,6 +24,7 @@ export default function BuySell({
 }) {
     const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy")
     const [orderType, setOrderType] = useState<"market" | "pending">("market")
+    const [limitPrice, setLimitPrice] = useState<string>("");
     const [currentAsset, setCurrentAsset] = useState<Asset>();
     const [userBalance, setUserBalance] = useState<number>(55000);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -46,7 +47,7 @@ export default function BuySell({
                 console.error("Error fetching user balance", err)
             }
         }
-        
+
         userBalance()
     }, [asset])
 
@@ -111,6 +112,7 @@ export default function BuySell({
                 side: activeTab,
                 marginUsd: margin,
                 leverage,
+                orderType,
                 tpEnabled,
                 tpPrice,
                 slEnabled,
@@ -119,11 +121,11 @@ export default function BuySell({
 
             setSuccess("Order Placed Successfully")
             setTimeout(() => setSuccess(""), 5000)
-            
+
         } catch (err) {
             setError("Failed to place order.");
             setTimeout(() => setError(""), 3000);
-        }finally{
+        } finally {
             setIsSubmitting(false);
         }
     }

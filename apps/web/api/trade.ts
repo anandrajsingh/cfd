@@ -5,6 +5,8 @@ export async function createTrade({
     side,
     marginUsd,
     leverage,
+    orderType,
+    limitPrice,
     tpEnabled,
     tpPrice,
     slEnabled,
@@ -14,19 +16,27 @@ export async function createTrade({
     side: "buy" | "sell",
     marginUsd: number,
     leverage: number,
+    orderType: "market" | "pending",
+    limitPrice?: string
     tpEnabled: boolean,
     tpPrice?: string,
     slEnabled: boolean,
     slPrice: string
 }) {
     const type = side === "buy" ? "LONG" : "SHORT";
+    const apiOrderType = orderType === "market" ? "MARKET" : "LIMIT";
 
     const payload: any = {
         asset,
         type,
         leverage,
-        margin: Math.floor(marginUsd * 100)
+        margin: Math.floor(marginUsd * 100),
+        orderType: apiOrderType
     };
+
+    if (apiOrderType === "LIMIT" && limitPrice) {
+        payload.limitPrice = Math.floor(Number(limitPrice) * 100);
+    }
 
     if (tpEnabled && tpPrice) {
         payload.takeProfit = Math.floor(Number(tpPrice) * 100);
@@ -44,17 +54,24 @@ export async function createTrade({
         credentials: "include",
         body: JSON.stringify(payload),
     })
+
+    if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Trade failed")
+    }
+
+    return await res.json()
 }
 
-export async function closeTrade(positionId: string){
+export async function closeTrade(positionId: string) {
     try {
-        const res = await fetch("http://localhost:3001/api/v1/trade/close",{
+        const res = await fetch("http://localhost:3001/api/v1/trade/close", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             credentials: "include",
-            body: JSON.stringify({positionId})
+            body: JSON.stringify({ positionId })
         })
         console.log(res)
     } catch (err) {
@@ -62,7 +79,7 @@ export async function closeTrade(positionId: string){
     }
 }
 
-export async function fetchOpenTrades(){
+export async function fetchOpenTrades() {
     try {
         const res = await fetch("http://localhost:3001/api/v1/trade/positions/open", {
             method: "GET",
@@ -77,7 +94,7 @@ export async function fetchOpenTrades(){
     }
 }
 
-export async function fetchClosedTrades(){
+export async function fetchClosedTrades() {
     try {
         const res = await fetch("http://localhost:3001/api/v1/trade/positions/closed", {
             method: "GET",

@@ -9,7 +9,7 @@ const Assets = ["BTC", "SOL", "ETH"];
 const POSITION_SIZE_SCALE = 1_000_000;
 
 tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
-    const { asset, type, margin, leverage, takeProfit, stopLoss } = req.body;
+    const { asset, type, orderType, limitPrice, margin, leverage, takeProfit, stopLoss } = req.body;
     const userId = req.user.userId;
 
     if (!Assets.includes(asset) || !(type === "LONG" || type === "SHORT")) {
@@ -18,6 +18,10 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
 
     if (typeof leverage !== "number" || typeof margin !== "number" || 1 > leverage || leverage > 10 || margin < 100) {
         return res.status(400).json({ error: "Incorrect leverage or margin." })
+    }
+
+    if (orderType === "LIMIT" && typeof limitPrice !== "number") {
+        return res.status(400).json({ error: "Limit price required for LIMIT order" });
     }
 
     // let entryPrice = 10_00;  // To do: fetch price from websocket backend.
@@ -54,7 +58,8 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
                     type,
                     margin,
                     leverage,
-                    orderType: "MARKET",
+                    orderType,
+                    limitPrice: orderType === "LIMIT" ? limitPrice : null,
                     takeProfit,
                     stopLoss,
                     state: "CREATED"
@@ -66,7 +71,8 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
             userId,
             asset,
             side: type,
-            orderType: "MARKET",
+            orderType,
+            limitPrice: limitPrice?.toString() ?? "",
             margin: margin.toString(),
             leverage: leverage.toString(),
             takeProfit: takeProfit?.toString() ?? "",
