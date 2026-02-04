@@ -5,6 +5,7 @@ import { setLatestPrice } from "./state";
 import { Asset, TradeType } from "@prisma/client"
 import { executeMarketOrders } from "./marketExecution";
 import { addLimitOrder, enqueueMarketOrder, removeLimitOrder } from "./orderBook";
+import { executeLimitOrders } from "./limitExecution";
 
 
 type RedisStreamMessage = {
@@ -67,6 +68,7 @@ export async function priceConsumer() {
                 const { market, price } = msg.message;
                 setLatestPrice(market as Asset, Number(price))
                 await executeMarketOrders(market as Asset, Number(price))
+                await executeLimitOrders(market as Asset, Number(price))
 
                 await redis.xAck(
                     PRICE_STREAM_KEY,

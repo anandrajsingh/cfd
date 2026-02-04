@@ -113,6 +113,7 @@ export default function BuySell({
                 marginUsd: margin,
                 leverage,
                 orderType,
+                limitPrice,
                 tpEnabled,
                 tpPrice,
                 slEnabled,
@@ -302,6 +303,22 @@ export default function BuySell({
                             Limit
                         </button>
                     </nav>
+                    {orderType === "pending" && (
+                        <div className="mt-3 bg-[#0f171b] border border-[#263136] rounded-md p-2">
+                            <div className="flex items-center gap-1 mb-1.5">
+                                <span className="text-xs text-white/60">Limit Price</span>
+                            </div>
+                            <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Enter limit price"
+                                value={limitPrice}
+                                onChange={(e) => setLimitPrice(e.target.value)}
+                                className="w-full rounded-md bg-[#141D22] border border-[#263136] px-2 py-1.5 text-sm text-white outline-none"
+                            />
+                        </div>
+                    )}
+
                 </div>
 
                 <section className="mt-3 bg-[#0f171b] border border-[#263136] rounded-md p-2">
