@@ -1,16 +1,16 @@
 import { Asset, TradeType } from "@prisma/client"
-import { marketOrderByAsset, Order, Position, positionsByAsset } from "./state"
+import { Order } from "./state"
 import { prismaClient as prisma } from "@repo/db/client";
+import { dequeueMarketOrder } from "./orderBook";
+import { redis } from "./redis";
 
 export async function executeMarketOrders(
     asset: Asset,
     price: number
 ) {
-    const queue = marketOrderByAsset.get(asset)
-    if (!queue || queue.length === 0) return;
-
-    while (queue.length > 0) {
-        const order = queue.shift()!;
+    while (true) {
+        const order = await dequeueMarketOrder(asset)
+        if(!order) break
         await executeSingleMarketOrder(order, price)
     }
 }
@@ -19,6 +19,9 @@ async function executeSingleMarketOrder(
     order: Order,
     price: number
 ) {
+    const isCanceled = await redis.sIsMember("cancelled_orders", order.id)
+    if(isCanceled) return
+    
     await prisma.$transaction(async (tx) => {
 
         const existing = await tx.activeOrder.findUnique({
@@ -36,7 +39,7 @@ async function executeSingleMarketOrder(
             liquidationPrice = price + price / order.leverage
         }
 
-        const position = await tx.position.create({
+        await tx.position.create({
             data: {
                 userId: order.userId,
                 asset: order.asset,
@@ -54,21 +57,5 @@ async function executeSingleMarketOrder(
         await tx.activeOrder.delete({
             where: { id: order.id }
         })
-
-        const set = positionsByAsset.get(order.asset) ?? new Set<Position>()
-
-        set.add({
-            id: position.id,
-            userId: position.userId,
-            asset: position.asset,
-            side: position.type,
-            entryPrice: price,
-            positionSize,
-            liquidationPrice,
-            takeProfit: order.takeProfit,
-            stopLoss: order.stopLoss,
-        });
-
-        positionsByAsset.set(order.asset, set);
     })
 }

@@ -1,8 +1,10 @@
+import "dotenv/config"
 import { prismaClient as prisma } from "@repo/db/client";
 import { redis } from "./redis";
-import { limitOrderByAsset, marketOrderByAsset, setLatestPrice } from "./state";
+import { setLatestPrice } from "./state";
 import { Asset, TradeType } from "@prisma/client"
 import { executeMarketOrders } from "./marketExecution";
+import { addLimitOrder, enqueueMarketOrder, removeLimitOrder } from "./orderBook";
 
 
 type RedisStreamMessage = {
@@ -42,7 +44,6 @@ async function ensureGroup(KEY: string, GROUP_NAME: string) {
     }
 }
 
-
 export async function priceConsumer() {
     await ensureGroup(PRICE_STREAM_KEY, PRICE_GROUP)
 
@@ -63,10 +64,9 @@ export async function priceConsumer() {
             const stream = rawStream as RedisStream;
 
             for (const msg of stream.messages) {
-                const { asset, price } = msg.message;
-                setLatestPrice(asset as Asset, Number(price))
-
-                await executeMarketOrders(asset as Asset, Number(price))
+                const { market, price } = msg.message;
+                setLatestPrice(market as Asset, Number(price))
+                await executeMarketOrders(market as Asset, Number(price))
 
                 await redis.xAck(
                     PRICE_STREAM_KEY,
@@ -120,25 +120,10 @@ export async function orderConsumer() {
                     stopLoss: stopLoss ? Number(stopLoss) : undefined,
                 };
 
-
-                if (order.orderType === "MARKET") {
-                    const queue = marketOrderByAsset.get(order.asset) ?? [];
-                    queue.push(order);
-                    marketOrderByAsset.set(order.asset, queue);
-                } else {
-                    const book =
-                        limitOrderByAsset.get(order.asset) ??
-                        { longs: [], shorts: [] };
-
-                    if (order.side === "LONG") {
-                        book.longs.push(order);
-                        book.longs.sort((a, b) => a.limitPrice! - b.limitPrice!);
-                    } else {
-                        book.shorts.push(order);
-                        book.shorts.sort((a, b) => b.limitPrice! - a.limitPrice!);
-                    }
-
-                    limitOrderByAsset.set(order.asset, book);
+                if(order.orderType === "MARKET"){
+                    await enqueueMarketOrder(order.asset, order)
+                }else{
+                    await addLimitOrder(order.asset, order.side, order)
                 }
 
                 await redis.xAck(
@@ -187,18 +172,10 @@ export async function orderControleConsumer() {
 
                 const asset = order.asset as Asset;
 
-                const queue = marketOrderByAsset.get(asset);
-                if (queue) {
-                    marketOrderByAsset.set(
-                        asset,
-                        queue.filter(o => o.id !== safeOrderId)
-                    )
-                }
-
-                const book = limitOrderByAsset.get(asset)
-                if (book) {
-                    book.longs = book.longs.filter(o => o.id !== orderId);
-                    book.shorts = book.shorts.filter(o => o.id !== orderId);
+                if(order.orderType === "LIMIT"){
+                    await removeLimitOrder(asset, order.type, safeOrderId)
+                }else{
+                    await redis.sAdd("cancelled_orders", safeOrderId)
                 }
 
                 await redis.xAck(
