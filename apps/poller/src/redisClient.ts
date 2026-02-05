@@ -1,14 +1,22 @@
 import { createClient } from "redis";
 
-export const redis = createClient({
+export const redisPub = createClient({
     url: "redis://localhost:6379"
 })
 
-redis.on("error", (err) => console.error("Redis Client Error: ", err))
+export const redisStream = createClient({
+    url : "redis://localhost:6379"
+})
+
+redisPub.on("error", (err) => console.error("Redis PubSub Client Error: ", err))
 
 export async function initRedis(){
-    if (!redis.isOpen){
-        await redis.connect()
-        console.log("Redis Connected")
+    if (!redisPub.isOpen){
+        await redisPub.connect()
+        console.log("Redis PubSub Connected")
+    }
+    if (!redisStream.isOpen){
+        await redisStream.connect()
+        console.log("Redis Stream Connected")
     }
 }

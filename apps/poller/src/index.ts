@@ -1,5 +1,5 @@
 import WebSocket from "ws"
-import { initRedis, redis } from "./redisClient";
+import { initRedis, redisPub, redisStream } from "./redisClient";
 
 const currentPrice = [
     { asset: "BTC", askPrice: 0, bidPrice: 0, decimals: 0 },
@@ -9,15 +9,20 @@ const currentPrice = [
 
 function publishCurrentPrice() {
     setInterval(async () => {
-        await redis.publish("price_updates", JSON.stringify(currentPrice))
-    }, 300)
+        await redisPub.publish("price_updates", JSON.stringify(currentPrice))
+        for (const item of currentPrice) {
+            pushToPriceStream(item.asset, item.bidPrice).catch(err => {
+                console.error("Failed to push to stream.", err)
+            })
+        }
+    }, 200)
 }
 
 async function pushToPriceStream(
     market: string,
     price: number,
 ) {
-    await redis.xAdd(
+    await redisStream.xAdd(
         "price_stream",
         "*",
         {
@@ -32,12 +37,12 @@ async function handleTradeUpdate(message: any) {
     const { s, p } = message;
 
     const market = s.replace(/usdt$/i, "");
-    
+
     const price = Math.floor(Number(p) * 100);
-    const askPrice = price + (price * 0.02);
+    const askPrice = price + (price * 0.002);
     const bidPrice = price
     const decimal = 2;
-    
+
     for (const item of currentPrice) {
         if (item.asset === market) {
             item.askPrice = askPrice;
@@ -46,9 +51,7 @@ async function handleTradeUpdate(message: any) {
         }
     }
 
-    pushToPriceStream(market, price).catch(err => {
-        console.error("Failed to push to stream.", err)
-    })
+
 }
 
 function connectWS() {
@@ -70,9 +73,9 @@ function connectWS() {
     ws.on("message", (data) => {
         try {
             const message = JSON.parse(data.toString());
-            
+
             if (message.e === "trade") {
-            handleTradeUpdate(message);
+                handleTradeUpdate(message);
             }
         } catch (error) {
             console.error("Error parsing message: ", error)

@@ -66,7 +66,7 @@ export async function priceConsumer(redis: RedisClient) {
 
             for (const msg of stream.messages) {
                 const { market, price } = msg.message;
-                console.log(price)
+                
                 setLatestPrice(market as Asset, Number(price))
                 await executeMarketOrders(market as Asset, Number(price), redis)
                 await executeLimitOrders(market as Asset, Number(price), redis)
