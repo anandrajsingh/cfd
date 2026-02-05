@@ -2,22 +2,24 @@ import { Asset, TradeType } from "@prisma/client"
 import { Order } from "./state"
 import { prismaClient as prisma } from "@repo/db/client";
 import { dequeueMarketOrder } from "./orderBook";
-import { redis } from "./redis";
+import { RedisClient } from "./redis";
 
 export async function executeMarketOrders(
     asset: Asset,
-    price: number
+    price: number,
+    redis: RedisClient
 ) {
     while (true) {
-        const order = await dequeueMarketOrder(asset)
+        const order = await dequeueMarketOrder(asset, redis)
         if(!order) break
-        await executeSingleMarketOrder(order, price)
+        await executeSingleMarketOrder(order, price, redis)
     }
 }
 
 async function executeSingleMarketOrder(
     order: Order,
-    price: number
+    price: number,
+    redis: RedisClient
 ) {
     const isCanceled = await redis.sIsMember("cancelled_orders", order.id)
     if(isCanceled) return

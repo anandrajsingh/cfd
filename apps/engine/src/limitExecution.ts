@@ -1,20 +1,22 @@
 import { prismaClient as prisma } from "@repo/db/client";
 import { Order } from "./state";
 import { Asset, TradeType } from "@prisma/client"
-import { redis } from "./redis";
+import { redis, RedisClient } from "./redis";
 
 export async function executeLimitOrders(
     asset: Asset,
-    price: number
+    price: number,
+    redis: RedisClient
 ) {
-    await executeSide(asset, TradeType.LONG, price)
-    await executeSide(asset, TradeType.SHORT, price)
+    await executeSide(asset, TradeType.LONG, price, redis)
+    await executeSide(asset, TradeType.SHORT, price, redis)
 }
 
 async function executeSide(
     asset: Asset,
     side: TradeType,
-    price: number
+    price: number,
+    redis: RedisClient
 ) {
     const key = side === TradeType.LONG
         ? `limit:long:${asset}` : `limit:short:${asset}`

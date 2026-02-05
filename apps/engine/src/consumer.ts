@@ -1,6 +1,6 @@
 import "dotenv/config"
 import { prismaClient as prisma } from "@repo/db/client";
-import { redis } from "./redis";
+import { RedisClient } from "./redis";
 import { setLatestPrice } from "./state";
 import { Asset, TradeType } from "@prisma/client"
 import { executeMarketOrders } from "./marketExecution";
@@ -30,7 +30,7 @@ const PRICE_STREAM_KEY = "price_stream";
 const ORDER_STREAM_KEY = "order_stream";
 const ORDER_CONTROL_STREAM_KEY = "order_control_stream";
 
-async function ensureGroup(KEY: string, GROUP_NAME: string) {
+async function ensureGroup(redis: RedisClient, KEY: string, GROUP_NAME: string) {
     try {
         await redis.xGroupCreate(
             KEY,
@@ -45,15 +45,15 @@ async function ensureGroup(KEY: string, GROUP_NAME: string) {
     }
 }
 
-export async function priceConsumer() {
-    await ensureGroup(PRICE_STREAM_KEY, PRICE_GROUP)
+export async function priceConsumer(redis: RedisClient) {
+    await ensureGroup(redis, PRICE_STREAM_KEY, PRICE_GROUP)
 
     while (true) {
         const response = await redis.xReadGroup(
             PRICE_GROUP,
             PRICE_CONSUMER,
             [{ key: PRICE_STREAM_KEY, id: ">" }],
-            { BLOCK: 5000, COUNT: 100 }
+            { BLOCK: 50, COUNT: 100 }
         )
 
         if (!Array.isArray(response)) continue;
@@ -66,9 +66,10 @@ export async function priceConsumer() {
 
             for (const msg of stream.messages) {
                 const { market, price } = msg.message;
+                console.log(price)
                 setLatestPrice(market as Asset, Number(price))
-                await executeMarketOrders(market as Asset, Number(price))
-                await executeLimitOrders(market as Asset, Number(price))
+                await executeMarketOrders(market as Asset, Number(price), redis)
+                await executeLimitOrders(market as Asset, Number(price), redis)
 
                 await redis.xAck(
                     PRICE_STREAM_KEY,
@@ -80,8 +81,8 @@ export async function priceConsumer() {
     }
 }
 
-export async function orderConsumer() {
-    await ensureGroup(ORDER_STREAM_KEY, ORDER_GROUP)
+export async function orderConsumer(redis:RedisClient) {
+    await ensureGroup(redis,ORDER_STREAM_KEY, ORDER_GROUP)
 
     while (true) {
         const response = await redis.xReadGroup(
@@ -123,9 +124,9 @@ export async function orderConsumer() {
                 };
 
                 if(order.orderType === "MARKET"){
-                    await enqueueMarketOrder(order.asset, order)
+                    await enqueueMarketOrder(order.asset, order, redis)
                 }else{
-                    await addLimitOrder(order.asset, order.side, order)
+                    await addLimitOrder(order.asset, order.side, order, redis)
                 }
 
                 await redis.xAck(
@@ -138,8 +139,8 @@ export async function orderConsumer() {
     }
 }
 
-export async function orderControleConsumer() {
-    await ensureGroup(ORDER_CONTROL_STREAM_KEY, ORDER_CONTROL_GROUP)
+export async function orderControleConsumer(redis:RedisClient) {
+    await ensureGroup(redis,ORDER_CONTROL_STREAM_KEY, ORDER_CONTROL_GROUP)
 
     while (true) {
         const response = await redis.xReadGroup(
@@ -175,7 +176,7 @@ export async function orderControleConsumer() {
                 const asset = order.asset as Asset;
 
                 if(order.orderType === "LIMIT"){
-                    await removeLimitOrder(asset, order.type, safeOrderId)
+                    await removeLimitOrder(asset, order.type, safeOrderId, redis)
                 }else{
                     await redis.sAdd("cancelled_orders", safeOrderId)
                 }
