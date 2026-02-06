@@ -1,4 +1,5 @@
 import { orderConsumer, orderControleConsumer, priceConsumer } from "./consumer"
+import { loadActiveOrders } from "./orderBook"
 import { createRedisClient } from "./redis"
 
 async function startEngine() {
@@ -11,6 +12,8 @@ async function startEngine() {
         orderRedis.connect(),
         controlRedis.connect(),
     ])
+
+    await loadActiveOrders(orderRedis)
 
     await Promise.all([
         priceConsumer(priceRedis),

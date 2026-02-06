@@ -1,6 +1,7 @@
 import { Asset, TradeType } from "@prisma/client"
 import { Order } from "./state";
 import { RedisClient } from "./redis";
+import { prismaClient } from "@repo/db/client";
 
 export async function enqueueMarketOrder(
     asset: Asset,
@@ -19,6 +20,50 @@ export async function dequeueMarketOrder(
     return JSON.parse(raw)
 }
 
+export async function loadActiveOrders(redis: RedisClient){
+  const orders = await prismaClient.activeOrder.findMany({
+    where: {state: "ACTIVE"}
+  })
+
+  for (const order of orders){
+    if (order.orderType === "MARKET"){
+      await enqueueMarketOrder(
+        order.asset as Asset,
+        {
+          id: order.id,
+          userId: order.userId,
+          asset: order.asset as Asset,
+          side: order.type as TradeType,
+          orderType: "MARKET",
+          margin: order.margin,
+          leverage: order.leverage,
+          takeProfit: order.takeProfit ?? undefined,
+          stopLoss: order.stopLoss ?? undefined
+        },
+        redis
+      )
+    }else{
+      await addLimitOrder(
+        order.asset as Asset,
+        order.type as TradeType,
+        {
+          id: order.id,
+          userId: order.userId,
+          asset: order.asset as Asset,
+          side: order.type as TradeType,
+          orderType: "LIMIT",
+          limitPrice: order.limitPrice!,
+          margin: order.margin,
+          leverage: order.leverage,
+          takeProfit: order.takeProfit ?? undefined,
+          stopLoss: order.stopLoss ?? undefined
+        },
+        redis
+      )
+    }
+    
+  }
+}
 
 export async function addLimitOrder(
   asset: Asset,
