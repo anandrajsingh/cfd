@@ -6,7 +6,6 @@ import { redis } from "../redis";
 export const tradeRouter = Router()
 
 const Assets = ["BTC", "SOL", "ETH"];
-const POSITION_SIZE_SCALE = 1_000_000;
 
 tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
     const { asset, type, orderType, limitPrice, margin, leverage, takeProfit, stopLoss } = req.body;
@@ -23,16 +22,6 @@ tradeRouter.post("/create", authMiddleware, async (req: AuthRequest, res) => {
     if (orderType === "LIMIT" && typeof limitPrice !== "number") {
         return res.status(400).json({ error: "Limit price required for LIMIT order" });
     }
-
-    // let entryPrice = 10_00;  // To do: fetch price from websocket backend.
-
-    // const realPositionSize = (margin * leverage) / entryPrice;
-    // const positionSize = Math.floor(realPositionSize * POSITION_SIZE_SCALE)
-    // const liquidationPrice = Math.floor(
-    //     type === "LONG"
-    //         ? entryPrice * (1 - 1 / leverage)
-    //         : entryPrice * (1 + 1 / leverage)
-    // );
 
     try {
 
@@ -106,48 +95,13 @@ tradeRouter.post("/close", authMiddleware, async (req: AuthRequest, res) => {
     })
     if (!position) return res.status(400).json({ error: "Position not found." })
 
-    const exitPrice = 11_00 //To do, fetch price from websocket.
-
-    const realPositionSize = position.positionSize / POSITION_SIZE_SCALE;
-
-    const pnl = Math.floor(position.type === "LONG" ?
-        (exitPrice - position.entryPrice) * realPositionSize : (position.entryPrice - exitPrice) * realPositionSize
-    )
-
-    const closePosition = await prisma.$transaction(async (tx) => {
-        await tx.user.update({
-            where: { id: userId },
-            data: {
-                balance: {
-                    increment: position.margin + pnl
-                }
-            }
-        })
-        const closedPositionId = await tx.closedPosition.create({
-            data: {
-                userId,
-                asset: position.asset,
-                type: position.type,
-                margin: position.margin,
-                leverage: position.leverage,
-                entryPrice: position.entryPrice,
-                exitPrice,
-                positionSize: position.positionSize,
-                realizedPnl: pnl,
-                openedAt: position.openedAt,
-            }
-        })
-
-        await tx.position.delete({
-            where: {
-                id: positionId
-            }
-        })
-
-        return closedPositionId;
+    await redis.xAdd("order_stream", "*", {
+        type : "CLOSE_POSITION",
+        positionId,
+        userId
     })
 
-    res.status(200).json({ success: "Order closed", pnl, closePosition })
+    res.status(200).json({ success: "Position Close Request Accepted" })
 
 })
 

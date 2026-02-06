@@ -6,6 +6,7 @@ import { Asset, TradeType } from "@prisma/client"
 import { executeMarketOrders } from "./marketExecution";
 import { addLimitOrder, enqueueMarketOrder, removeLimitOrder } from "./orderBook";
 import { executeLimitOrders } from "./limitExecution";
+import { executeClosePosition } from "./closeExecution";
 
 
 type RedisStreamMessage = {
@@ -100,7 +101,13 @@ export async function orderConsumer(redis:RedisClient) {
             }
             const stream = rawStream as RedisStream;
             for (const msg of stream.messages) {
-                const { orderId, userId, asset, side, orderType, limitPrice, margin, leverage, takeProfit, stopLoss } = msg.message;
+                const { orderId, userId, asset, side, orderType, limitPrice, margin, leverage, takeProfit, stopLoss, type, positionId } = msg.message;
+
+                if(type === "CLOSE_POSITION"){
+                    if(!userId || !positionId) continue
+                    executeClosePosition(userId, positionId, redis)
+                    continue
+                }
 
                 const safeOrderId = assertString(orderId, "orderId")
 

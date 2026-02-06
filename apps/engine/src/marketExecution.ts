@@ -4,6 +4,8 @@ import { prismaClient as prisma } from "@repo/db/client";
 import { dequeueMarketOrder } from "./orderBook";
 import { RedisClient } from "./redis";
 
+const POSITION_SIZE_SCALE = 1_000_000;
+
 export async function executeMarketOrders(
     asset: Asset,
     price: number,
@@ -31,7 +33,8 @@ async function executeSingleMarketOrder(
         });
         if (!existing) return;
 
-        const positionSize = Math.floor((order.margin * order.leverage) / price);
+        const size = (order.margin * order.leverage) / price;
+        const positionSize = Math.floor(size * POSITION_SIZE_SCALE)
 
         let liquidationPrice;
 
