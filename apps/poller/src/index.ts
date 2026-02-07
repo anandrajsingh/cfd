@@ -7,8 +7,11 @@ const currentPrice = [
     { asset: "ETH", askPrice: 0, bidPrice: 0, decimals: 0 },
 ]
 
+let hasInitialPrice = false;
+
 function publishCurrentPrice() {
     setInterval(async () => {
+        if(!hasInitialPrice) return
         await redisPub.publish("price_updates", JSON.stringify(currentPrice))
         for (const item of currentPrice) {
             pushToPriceStream(item.asset, item.bidPrice).catch(err => {
@@ -39,7 +42,7 @@ async function handleTradeUpdate(message: any) {
     const market = s.replace(/usdt$/i, "");
 
     const price = Math.floor(Number(p) * 100);
-    const askPrice = price + (price * 0.002);
+    const askPrice = Math.floor(price + (price * 0.002));
     const bidPrice = price
     const decimal = 2;
 
@@ -48,6 +51,7 @@ async function handleTradeUpdate(message: any) {
             item.askPrice = askPrice;
             item.bidPrice = bidPrice
             item.decimals = decimal
+            hasInitialPrice = true;
         }
     }
 
