@@ -3,6 +3,8 @@ import { Order } from "./state";
 import { Asset, TradeType } from "@prisma/client"
 import { redis, RedisClient } from "./redis";
 
+const POSITION_SIZE_SCALE = 1_000_000;
+
 export async function executeLimitOrders(
     asset: Asset,
     price: number,
@@ -21,18 +23,18 @@ async function executeSide(
     const key = side === TradeType.LONG
         ? `limit:long:${asset}` : `limit:short:${asset}`
 
+    const scorePrice = side === TradeType.LONG ? price : -price;
+
     while (true) {
-        const candidates =
-            side === TradeType.LONG
-                ? await redis.zRange(key, price, "+inf", {
-                    BY: "SCORE",
-                    REV: true,
-                    LIMIT: { offset: 0, count: 1 }
-                })
-                : await redis.zRange(key, "-inf", price, {
-                    BY: "SCORE",
-                    LIMIT: { offset: 0, count: 1 }
-                })
+        const candidates = await redis.zRange(
+            key,
+            "-inf",
+            scorePrice,
+            {
+                BY: "SCORE",
+                LIMIT: { offset: 0, count: 1 }
+            }
+        );
 
         if (candidates.length === 0) break
         const orderId = candidates[0]
@@ -57,8 +59,8 @@ async function executeSide(
         const order = JSON.parse(raw) as Order
 
         if (
-            (side === TradeType.LONG && price > order.limitPrice!) ||
-            (side === TradeType.SHORT && price < order.limitPrice!)
+            (side === TradeType.LONG && price < order.limitPrice!) ||
+            (side === TradeType.SHORT && price > order.limitPrice!)
         ) {
             break
         }
@@ -80,7 +82,7 @@ async function executeSingleLimitOrder(
         })
         if (!existing) return
 
-        const positionSize = Math.floor((order.margin * order.leverage) / price)
+        const positionSize = Math.floor(((order.margin * order.leverage) / price)*POSITION_SIZE_SCALE)
 
         const liquidationPrice = order.side === TradeType.LONG
             ? price - price / order.leverage : price + price / order.leverage

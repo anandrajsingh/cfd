@@ -76,6 +76,7 @@ export async function addLimitOrder(
       ? `limit:long:${asset}`
       : `limit:short:${asset}`
 
+  const score = side === TradeType.LONG ? order.limitPrice! : -order.limitPrice!;
 
   await redis.set(
     `order:${order.id}`,
@@ -83,8 +84,8 @@ export async function addLimitOrder(
   )
 
   await redis.zAdd(key, {
-    score: order.limitPrice!,
-    value: JSON.stringify(order)
+    score,
+    value: order.id
   })
 }
 
