@@ -17,6 +17,12 @@ This project simulates real-time price updates, interactive charts, and trading 
 
 ---
 
+## Architecture
+
+![Architecture](./screenshots/architecture.png)
+
+---
+
 ## 🛠️ Tech Stack
 
 **Frontend**
