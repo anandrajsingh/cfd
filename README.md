@@ -46,3 +46,21 @@ This project simulates real-time price updates, interactive charts, and trading 
 ```bash
 git clone https://github.com/anandrajsingh/cfd.git
 cd cfd
+```
+
+### 2️⃣ Run Docker Containers
+
+```bash
+docker-compose up -d
+```
+
+### 3️⃣ Install dependencies
+
+```bash
+npm install
+```
+
+### 4️⃣ Run development server
+```bash
+npm run dev
+```
