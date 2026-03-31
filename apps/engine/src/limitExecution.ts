@@ -82,10 +82,14 @@ async function executeSingleLimitOrder(
         })
         if (!existing) return
 
-        const positionSize = Math.floor(((order.margin * order.leverage) / price)*POSITION_SIZE_SCALE)
+        const rawSize = (order.margin * order.leverage * POSITION_SIZE_SCALE) / price;
+        const positionSize = Math.floor(rawSize + Number.EPSILON)
+        // const positionSiz = Math.floor(((order.margin * order.leverage) / price)*POSITION_SIZE_SCALE)
 
         const liquidationPrice = order.side === TradeType.LONG
-            ? price - price / order.leverage : price + price / order.leverage
+            ? price*(1 - 1/order.leverage)
+            : price*(1 + 1/order.leverage);
+            // ? price - price / order.leverage : price + price / order.leverage
 
         await tx.position.create({
             data: {
