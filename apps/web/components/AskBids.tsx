@@ -9,7 +9,12 @@ const imageUrl = {
     BTC: "https://i.postimg.cc/TPh0K530/87496d50-2408-43e1-ad4c-78b47b448a6a.png",
 };
 
-export default function AskBids({ asset }: { asset: Assets }) {
+type AskBidProps = {
+    asset: Assets;
+    onAssetChange: (asset: Assets) => void
+}
+
+export default function AskBids({ asset, onAssetChange }: AskBidProps) {
     const [bid_asks, setBidsAsks] = useState({
         SOL: {
             bids: 0,
@@ -52,6 +57,7 @@ export default function AskBids({ asset }: { asset: Assets }) {
                 <tbody className="divide-y divide-neutral-600/20">
                     {Object.values(bid_asks).map((item) => (
                         <tr key={item.asset}
+                            onClick={() => onAssetChange(`${item.asset}` as Assets)}
                             className={`hover:bg-neutral-800/50 transition-colors ${asset === `${item.asset}` ? "bg-neutral-800/30" : ""
                                 }`}
                         >
