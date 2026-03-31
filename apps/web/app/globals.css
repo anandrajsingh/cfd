@@ -1,3 +1,40 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --page-bg: #061018;
+  --page-fg: #f4f7f8;
+  --soft-fg: rgba(228, 236, 240, 0.78);
+  --muted-fg: rgba(182, 197, 205, 0.62);
+  --accent: #63d5cc;
+}
+
+html {
+  background: var(--page-bg);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(34, 116, 114, 0.24), transparent 28%),
+    radial-gradient(circle at top right, rgba(244, 161, 76, 0.12), transparent 22%),
+    linear-gradient(180deg, #071019 0%, #061018 48%, #07131a 100%);
+  color: var(--page-fg);
+}
+
+.landing-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 88px 88px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 92%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
